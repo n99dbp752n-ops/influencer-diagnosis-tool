@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>达人诊断工具（MVP）</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>女装品牌 · 达人诊断工具</h1>
+      <p>先人工录入，先出判断，再逐步接 OCR/AI。</p>
+    </header>
+
+    <main class="layout">
+      <section class="panel input-panel">
+        <h2>① 录入达人信息</h2>
+        <form id="diagnosisForm">
+          <div class="grid">
+            <label>达人主页链接<input name="profileUrl" type="url" placeholder="https://..." required /></label>
+            <label>达人昵称<input name="nickname" required /></label>
+            <label>粉丝量<input name="followers" type="number" min="0" step="1" required /></label>
+            <label>近10篇平均点赞<input name="avgLikes" type="number" min="0" step="1" required /></label>
+            <label>近10篇平均收藏<input name="avgSaves" type="number" min="0" step="1" required /></label>
+            <label>近10篇平均评论<input name="avgComments" type="number" min="0" step="1" required /></label>
+            <label>阅读中位数<input name="medianViews" type="number" min="1" step="1" required /></label>
+            <label>报价（元）<input name="price" type="number" min="0" step="1" required /></label>
+
+            <label>内容类目
+              <select name="contentCategory" required>
+                <option value="">请选择</option>
+                <option>穿搭</option><option>生活方式</option><option>通勤</option><option>成熟女性</option><option>其他</option>
+              </select>
+            </label>
+            <label>粉丝画像
+              <select name="audienceProfile" required>
+                <option value="">请选择</option>
+                <option>女性为主25-40岁</option><option>女性为主30-50岁</option><option>偏年轻</option><option>不匹配</option>
+              </select>
+            </label>
+            <label>是否接过同价位女装
+              <select name="hasSimilarBrandCoop" required>
+                <option value="">请选择</option>
+                <option>是</option><option>否</option><option>不确定</option>
+              </select>
+            </label>
+            <label>广告密度
+              <select name="adDensity" required>
+                <option value="">请选择</option>
+                <option>低</option><option>中</option><option>高</option>
+              </select>
+            </label>
+            <label>内容气质
+              <select name="contentStyle" required>
+                <option value="">请选择</option>
+                <option>简约</option><option>松弛</option><option>精致</option><option>网红感</option><option>强种草</option><option>其他</option>
+              </select>
+            </label>
+            <label>图片质感（1-5）<input name="imageQuality" type="number" min="1" max="5" step="1" required /></label>
+            <label>品牌匹配度（1-5）<input name="brandFit" type="number" min="1" max="5" step="1" required /></label>
+            <label>执行风险
+              <select name="executionRisk" required>
+                <option value="">请选择</option>
+                <option>低</option><option>中</option><option>高</option>
+              </select>
+            </label>
+            <label>历史合作结果
+              <select name="historicalResult" required>
+                <option value="">请选择</option>
+                <option>有</option><option>无</option><option>不确定</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="actions">
+            <button type="button" id="loadSample">填充示例数据</button>
+            <button type="submit">生成诊断结果</button>
+            <button type="button" id="saveHistory">保存到本地历史</button>
+          </div>
+        </form>
+
+        <h3>本地历史记录</h3>
+        <div class="history-actions">
+          <select id="historySelect"><option value="">选择历史记录</option></select>
+          <button type="button" id="loadHistory">读取</button>
+          <button type="button" id="clearHistory">清空</button>
+        </div>
+      </section>
+
+      <section class="panel result-panel">
+        <h2>② 诊断结果</h2>
+        <div id="resultBox" class="result-box">请先录入左侧信息并点击“生成诊断结果”。</div>
+        <div class="actions">
+          <button type="button" id="copyResult">复制结果</button>
+          <button type="button" id="downloadMarkdown">导出 Markdown</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
