@@ -15,3 +15,21 @@ button:hover { background: #1f2937; }
 .result-box { min-height: 460px; background: #f9fafb; border: 1px dashed #cbd5e1; padding: 12px; border-radius: 8px; white-space: pre-wrap; line-height: 1.6; }
 .history-actions { display: flex; gap: 8px; }
 @media (max-width: 960px) { .layout { grid-template-columns: 1fr; } .grid { grid-template-columns: 1fr; } }
+
+.hint { margin-top: -2px; color: #6b7280; font-size: 13px; }
+.screenshot-panel, .recognition-panel { margin-bottom: 18px; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; background: #fafafa; }
+.screenshot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+.upload-item { background: #fff; border: 1px solid #d1d5db; border-radius: 8px; padding: 8px; }
+.upload-item input { margin-top: 8px; }
+.preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.preview-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px; }
+.preview-card h4 { margin: 0 0 8px; font-size: 13px; color: #374151; }
+.preview-image { width: 100%; height: 160px; object-fit: contain; border: 1px dashed #cbd5e1; border-radius: 6px; background: #f9fafb; display: none; }
+.preview-image.is-visible { display: block; }
+
+@media (max-width: 960px) {
+  .screenshot-grid,
+  .preview-grid {
+    grid-template-columns: 1fr;
+  }
+}
