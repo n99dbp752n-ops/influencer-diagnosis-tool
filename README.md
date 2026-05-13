@@ -4,7 +4,7 @@
 
 > 第一版不做自动抓取，避免平台抓取风险。截图内容先人工看图填写，后续可再接 OCR/AI。
 
-## 你能做什么（保留 main 版本能力）
+## 你能做什么
 
 - 录入达人核心字段（链接、粉丝、近10篇数据、报价、调性、风险等）
 - 自动计算：平均互动量、互动率、CPM、CPE
@@ -53,7 +53,7 @@ python3 -m http.server 8080
 http://localhost:8080
 ```
 
-## GitHub Pages 部署（合并新增说明）
+## GitHub Pages 部署
 
 仓库已包含工作流：`.github/workflows/deploy-pages.yml`。
 
