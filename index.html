@@ -3,152 +3,66 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>达人诊断工具（MVP）</title>
+    <title>Vlog 一键粗剪工具（MVP）</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <header class="topbar">
-      <h1>女装品牌 · 达人诊断工具</h1>
-      <p>先人工录入，先出判断，再逐步接 OCR/AI。</p>
+      <h1>Vlog 一键粗剪工具</h1>
+      <p>上传素材 → 选择节奏 → 自动生成粗剪时间线 → 一键生成 MP4 成片。</p>
     </header>
 
     <main class="layout">
       <section class="panel input-panel">
-        <h2>① 录入达人信息</h2>
+        <h2>① 上传素材</h2>
+        <p class="hint">支持上传多个视频素材（手机拍摄、横竖屏都行）。</p>
+        <input id="videoInput" type="file" accept="video/*" multiple />
 
-        <section class="screenshot-panel">
-          <h3>截图上传区</h3>
-          <p class="hint">支持上传：达人主页截图、近10篇数据截图、报价截图、粉丝画像截图；也支持任意位置 Ctrl+V 粘贴截图。</p>
-          <div class="screenshot-grid">
-            <label class="upload-item">达人主页截图<input type="file" accept="image/*" data-preview="profileScreenshotPreview" /></label>
-            <label class="upload-item">近10篇数据截图<input type="file" accept="image/*" data-preview="recentPostsScreenshotPreview" /></label>
-            <label class="upload-item">报价截图<input type="file" accept="image/*" data-preview="priceScreenshotPreview" /></label>
-            <label class="upload-item">粉丝画像截图<input type="file" accept="image/*" data-preview="audienceScreenshotPreview" /></label>
-          </div>
-
-          <div class="preview-grid">
-            <div class="preview-card"><h4>达人主页截图预览</h4><img id="profileScreenshotPreview" class="preview-image" alt="达人主页截图预览" /><details class="ocr-details"><summary>识别到的文字</summary><pre class="ocr-text" data-ocr-text="profile"></pre></details></div>
-            <div class="preview-card"><h4>近10篇数据截图预览</h4><img id="recentPostsScreenshotPreview" class="preview-image" alt="近10篇数据截图预览" /><details class="ocr-details"><summary>识别到的文字</summary><pre class="ocr-text" data-ocr-text="recentPosts"></pre></details></div>
-            <div class="preview-card"><h4>报价截图预览</h4><img id="priceScreenshotPreview" class="preview-image" alt="报价截图预览" /><details class="ocr-details"><summary>识别到的文字</summary><pre class="ocr-text" data-ocr-text="price"></pre></details></div>
-            <div class="preview-card"><h4>粉丝画像截图预览</h4><img id="audienceScreenshotPreview" class="preview-image" alt="粉丝画像截图预览" /><details class="ocr-details"><summary>识别到的文字</summary><pre class="ocr-text" data-ocr-text="audience"></pre></details></div>
-          </div>
-          <section class="pending-panel">
-            <h4>待确认截图</h4>
-            <p class="hint">无法自动分类时会进入此区域，请手动选择类型。</p>
-            <div id="pendingScreenshots" class="pending-list"></div>
-          </section>
-          <p id="ocrStatus" class="ocr-status" data-status="idle">等待截图</p>
-
-          <div class="actions">
-            <button type="button" id="recognizeFromScreenshots">从截图识别信息</button>
-          </div>
-        </section>
-
-        <section class="recognition-panel">
-          <h3>识别结果确认区</h3>
-          <div class="grid">
-            <label>达人主页链接<input name="recognizedProfileUrl" placeholder="识别后可人工修正" /></label>
-            <label>达人昵称<input name="recognizedNickname" placeholder="识别后可人工修正" /></label>
-            <label>粉丝量<input name="recognizedFollowers" type="number" min="0" step="1" /></label>
-            <label>近10篇平均点赞<input name="recognizedAvgLikes" type="number" min="0" step="1" /></label>
-            <label>近10篇平均收藏<input name="recognizedAvgSaves" type="number" min="0" step="1" /></label>
-            <label>近10篇平均评论<input name="recognizedAvgComments" type="number" min="0" step="1" /></label>
-            <label>阅读中位数<input name="recognizedMedianViews" type="number" min="1" step="1" /></label>
-            <label>报价（元）<input name="recognizedPrice" type="number" min="0" step="1" /></label>
-            <label>粉丝画像
-              <select name="recognizedAudienceProfile">
-                <option value="">请选择</option>
-                <option>女性为主25-40岁</option><option>女性为主30-50岁</option><option>偏年轻</option><option>不匹配</option>
-              </select>
-            </label>
-          </div>
-          <div class="actions">
-            <button type="button" id="applyRecognizedData">填入诊断表单</button>
-          </div>
-        </section>
-
-        <form id="diagnosisForm">
-          <div class="grid">
-            <label>达人主页链接<input name="profileUrl" type="url" placeholder="https://..." required /></label>
-            <label>达人昵称<input name="nickname" required /></label>
-            <label>粉丝量<input name="followers" type="number" min="0" step="1" required /></label>
-            <label>近10篇平均点赞<input name="avgLikes" type="number" min="0" step="1" required /></label>
-            <label>近10篇平均收藏<input name="avgSaves" type="number" min="0" step="1" required /></label>
-            <label>近10篇平均评论<input name="avgComments" type="number" min="0" step="1" required /></label>
-            <label>阅读中位数<input name="medianViews" type="number" min="1" step="1" required /></label>
-            <label>报价（元）<input name="price" type="number" min="0" step="1" required /></label>
-
-            <label>内容类目
-              <select name="contentCategory" required>
-                <option value="">请选择</option>
-                <option>穿搭</option><option>生活方式</option><option>通勤</option><option>成熟女性</option><option>其他</option>
-              </select>
-            </label>
-            <label>粉丝画像
-              <select name="audienceProfile" required>
-                <option value="">请选择</option>
-                <option>女性为主25-40岁</option><option>女性为主30-50岁</option><option>偏年轻</option><option>不匹配</option>
-              </select>
-            </label>
-            <label>是否接过同价位女装
-              <select name="hasSimilarBrandCoop" required>
-                <option value="">请选择</option>
-                <option>是</option><option>否</option><option>不确定</option>
-              </select>
-            </label>
-            <label>广告密度
-              <select name="adDensity" required>
-                <option value="">请选择</option>
-                <option>低</option><option>中</option><option>高</option>
-              </select>
-            </label>
-            <label>内容气质
-              <select name="contentStyle" required>
-                <option value="">请选择</option>
-                <option>简约</option><option>松弛</option><option>精致</option><option>网红感</option><option>强种草</option><option>其他</option>
-              </select>
-            </label>
-            <label>图片质感（1-5）<input name="imageQuality" type="number" min="1" max="5" step="1" required /></label>
-            <label>品牌匹配度（1-5）<input name="brandFit" type="number" min="1" max="5" step="1" required /></label>
-            <label>执行风险
-              <select name="executionRisk" required>
-                <option value="">请选择</option>
-                <option>低</option><option>中</option><option>高</option>
-              </select>
-            </label>
-            <label>历史合作结果
-              <select name="historicalResult" required>
-                <option value="">请选择</option>
-                <option>有</option><option>无</option><option>不确定</option>
-              </select>
-            </label>
-          </div>
-
-          <div class="actions">
-            <button type="button" id="loadSample">填充示例数据</button>
-            <button type="submit">生成诊断结果</button>
-            <button type="button" id="saveHistory">保存到本地历史</button>
-          </div>
-        </form>
-
-        <h3>本地历史记录</h3>
-        <div class="history-actions">
-          <select id="historySelect"><option value="">选择历史记录</option></select>
-          <button type="button" id="loadHistory">读取</button>
-          <button type="button" id="clearHistory">清空</button>
+        <h3>② 选择风格</h3>
+        <div class="grid">
+          <label>Vlog 风格
+            <select id="stylePreset">
+              <option value="daily">日常记录（自然节奏）</option>
+              <option value="travel">旅行感（快切）</option>
+              <option value="food">探店美食（中快节奏）</option>
+            </select>
+          </label>
+          <label>目标成片时长（秒）
+            <input id="targetDuration" type="number" min="15" max="300" value="60" />
+          </label>
+          <label>单镜头最长（秒）
+            <input id="maxClipDuration" type="number" min="2" max="12" value="5" />
+          </label>
+          <label>转场时长（秒）
+            <input id="transitionDuration" type="number" min="0" max="1.5" step="0.1" value="0.3" />
+          </label>
         </div>
+
+        <div class="actions">
+          <button id="analyzeBtn" type="button">分析素材并自动粗剪</button>
+          <button id="renderBtn" type="button">自动生成视频成品(MP4)</button>
+          <button id="downloadPlanBtn" type="button">导出剪辑计划(JSON)</button>
+          <button id="copyPromptBtn" type="button">复制给剪辑软件/AI的指令</button>
+          <button id="downloadVideoBtn" type="button" disabled>下载成品视频</button>
+        </div>
+
+        <div id="progressBox" class="progress-box" data-status="idle">等待开始</div>
+
+        <h3>素材概览</h3>
+        <div id="assetList" class="asset-list">暂无素材</div>
       </section>
 
       <section class="panel result-panel">
-        <h2>② 诊断结果</h2>
-        <div id="resultBox" class="result-box">请先录入左侧信息并点击“生成诊断结果”。</div>
-        <div class="actions">
-          <button type="button" id="copyResult">复制结果</button>
-          <button type="button" id="downloadMarkdown">导出 Markdown</button>
-        </div>
+        <h2>③ 自动生成结果</h2>
+        <div id="timeline" class="result-box">上传素材后，点击“分析素材并自动粗剪”。</div>
+
+        <h3>④ 成片预览</h3>
+        <video id="previewVideo" class="preview-video" controls></video>
       </section>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

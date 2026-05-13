@@ -1,402 +1,230 @@
-const form = document.getElementById('diagnosisForm');
-const resultBox = document.getElementById('resultBox');
-const historySelect = document.getElementById('historySelect');
-const HISTORY_KEY = 'influencer_diagnosis_history_v1';
+const videoInput = document.getElementById('videoInput');
+const stylePreset = document.getElementById('stylePreset');
+const targetDurationInput = document.getElementById('targetDuration');
+const maxClipDurationInput = document.getElementById('maxClipDuration');
+const transitionDurationInput = document.getElementById('transitionDuration');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const renderBtn = document.getElementById('renderBtn');
+const downloadPlanBtn = document.getElementById('downloadPlanBtn');
+const copyPromptBtn = document.getElementById('copyPromptBtn');
+const downloadVideoBtn = document.getElementById('downloadVideoBtn');
+const assetList = document.getElementById('assetList');
+const timeline = document.getElementById('timeline');
+const previewVideo = document.getElementById('previewVideo');
+const progressBox = document.getElementById('progressBox');
 
-const sampleData = {
-  profileUrl: 'https://www.xiaohongshu.com/user/profile/example', nickname: 'Mia通勤穿搭', followers: 128000,
-  avgLikes: 1850, avgSaves: 620, avgComments: 230, medianViews: 32000, price: 18000,
-  contentCategory: '通勤', audienceProfile: '女性为主25-40岁', hasSimilarBrandCoop: '是', adDensity: '中',
-  contentStyle: '简约', imageQuality: 4, brandFit: 5, executionRisk: '低', historicalResult: '有'
+let assets = [];
+let latestPlan = null;
+let finalVideoBlob = null;
+let ffmpeg = null;
+
+const styleRules = {
+  daily: { pace: 1, minClip: 3, maxClip: 6, mood: '自然叙事' },
+  travel: { pace: 1.35, minClip: 2, maxClip: 4, mood: '节奏明快' },
+  food: { pace: 1.15, minClip: 2.5, maxClip: 5, mood: '细节+氛围' }
 };
 
-function num(v) { return Number(v || 0); }
-function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
-
-function calcMetrics(data) {
-  const avgEngagement = num(data.avgLikes) + num(data.avgSaves) + num(data.avgComments);
-  const engagementRate = num(data.medianViews) > 0 ? avgEngagement / num(data.medianViews) : 0;
-  const cpm = num(data.medianViews) > 0 ? (num(data.price) / num(data.medianViews)) * 1000 : 0;
-  const cpe = avgEngagement > 0 ? num(data.price) / avgEngagement : 0;
-  return { avgEngagement, engagementRate, cpm, cpe };
+function seconds(n) { return `${n.toFixed(1)}s`; }
+function setProgress(status, text) {
+  progressBox.dataset.status = status;
+  progressBox.textContent = text;
 }
 
-function scoreDataHealth({ engagementRate, cpm, cpe }) {
-  let score = 0;
-  if (engagementRate >= 0.12) score += 12;
-  else if (engagementRate >= 0.08) score += 9;
-  else if (engagementRate >= 0.05) score += 6;
-  else score += 3;
-
-  if (cpm <= 500) score += 7;
-  else if (cpm <= 800) score += 5;
-  else if (cpm <= 1200) score += 3;
-  else score += 1;
-
-  if (cpe <= 6) score += 6;
-  else if (cpe <= 10) score += 4;
-  else if (cpe <= 15) score += 2;
-  else score += 1;
-
-  return clamp(score, 0, 25);
+async function readVideoMeta(file) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => {
+      const duration = Number.isFinite(video.duration) ? video.duration : 0;
+      URL.revokeObjectURL(url);
+      resolve({ name: file.name, file, sizeMB: (file.size / 1024 / 1024).toFixed(1), duration });
+    };
+    video.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve({ name: file.name, file, sizeMB: (file.size / 1024 / 1024).toFixed(1), duration: 0 });
+    };
+    video.src = url;
+  });
 }
 
-function calculateScore(data, metrics) {
-  const brandFitScore = num(data.brandFit) * 8;
-  const dataHealthScore = scoreDataHealth(metrics);
-
-  let riskScore = 20;
-  if (data.executionRisk === '中') riskScore -= 6;
-  if (data.executionRisk === '高') riskScore -= 14;
-  if (data.adDensity === '中') riskScore -= 3;
-  if (data.adDensity === '高') riskScore -= 8;
-  if (data.historicalResult === '无') riskScore -= 3;
-  riskScore = clamp(riskScore, 0, 20);
-
-  let valueScore = 0;
-  if (data.hasSimilarBrandCoop === '是') valueScore += 6;
-  if (num(data.imageQuality) >= 4) valueScore += 4;
-  if (['简约', '松弛', '精致'].includes(data.contentStyle)) valueScore += 5;
-  valueScore = clamp(valueScore, 0, 15);
-
-  const total = brandFitScore + dataHealthScore + riskScore + valueScore;
-  return { brandFitScore, dataHealthScore, riskScore, valueScore, total };
+function renderAssets() {
+  if (!assets.length) {
+    assetList.textContent = '暂无素材';
+    return;
+  }
+  assetList.innerHTML = assets.map((a, i) => `#${i + 1} ${a.name} · ${seconds(a.duration)} · ${a.sizeMB}MB`).join('\n');
 }
 
-function generateAdvice(data, metrics, scores) {
-  const highFit = num(data.brandFit) >= 4 && ['女性为主25-40岁', '女性为主30-50岁'].includes(data.audienceProfile);
-  const goodData = metrics.engagementRate >= 0.08 && metrics.cpe <= 10;
-  const midData = metrics.engagementRate >= 0.05;
-  const highRisk = data.executionRisk === '高' || data.adDensity === '高';
-  const priceReasonable = metrics.cpm <= 800 && metrics.cpe <= 10;
+function buildRoughCutPlan() {
+  const style = styleRules[stylePreset.value];
+  const target = Number(targetDurationInput.value || 60);
+  const userMaxClip = Number(maxClipDurationInput.value || 5);
+  const transition = Number(transitionDurationInput.value || 0.3);
 
-  let influencerType = '待观察型';
-  if (goodData && highFit) influencerType = '高潜转化型';
-  else if (highFit) influencerType = '品牌形象型';
-  else if (goodData) influencerType = '流量曝光型';
+  const clipMax = Math.min(userMaxClip, style.maxClip);
+  const clipMin = style.minClip;
+  const clips = [];
 
-  let coopAdvice = '建议先小范围测试。';
-  if (highFit && goodData && priceReasonable) coopAdvice = '建议报备合作 / 图文合作 / 上新重点合作。';
-  else if (highFit && midData && num(data.imageQuality) >= 4) coopAdvice = '建议寄样 + 低服务费测试。';
-  else if (goodData && !highFit) coopAdvice = '数据不错，但品牌调性一般，建议谨慎测试，不作为主推。';
-  else if (!priceReasonable) coopAdvice = '报价偏高，建议压价 / 换合作方式 / 暂不合作。';
-  if (highRisk) coopAdvice = '广告密度或执行风险偏高，不建议进入本期合作池。';
+  let total = 0;
+  for (const asset of assets) {
+    if (total >= target) break;
+    if (!asset.duration || asset.duration <= 1) continue;
 
-  let quoteRange = '建议置换或低预算测试。';
-  if (highRisk) quoteRange = '执行风险高：不建议合作。';
-  else if (highFit && goodData) quoteRange = `建议报价区间：¥${Math.round(num(data.price) * 0.8)} - ¥${Math.round(num(data.price))}`;
-  else if ((highFit && midData) || (goodData && num(data.brandFit) === 3)) quoteRange = `建议报价区间：¥${Math.round(num(data.price) * 0.5)} - ¥${Math.round(num(data.price) * 0.7)}`;
+    const thisClip = Math.max(clipMin, Math.min(clipMax, (clipMin + clipMax) / 2 / style.pace));
+    const start = Math.max(0, (asset.duration - thisClip) / 2);
+    const end = Math.min(asset.duration, start + thisClip);
 
-  const enterPool = !highRisk && scores.total >= 60 ? '建议进入合作池' : '暂不进入合作池';
+    clips.push({
+      source: asset.name,
+      start: Number(start.toFixed(2)),
+      end: Number(end.toFixed(2)),
+      duration: Number((end - start).toFixed(2)),
+      transition
+    });
+
+    total += end - start;
+  }
 
   return {
-    influencerType,
-    fitJudge: highFit ? '高匹配：人群与品牌方向较一致。' : '匹配一般：建议先做小样测试。',
-    dataJudge: goodData ? '数据健康：互动效率较好。' : midData ? '数据中等：可测但需控预算。' : '数据偏弱：谨慎投入。',
-    riskJudge: highRisk ? '风险偏高：重点关注执行稳定性和广告密度。' : '风险可控。',
-    priceJudge: priceReasonable ? '报价基本合理。' : '报价偏高，当前数据支撑不足。',
-    coopAdvice,
-    quoteRange,
-    enterPool,
-    riskAlert: highRisk ? '风险提醒：请避免本期重点投放，必要时先走低成本试投。' : '风险提醒：可按常规流程推进。',
-    bargainTip: priceReasonable ? '谈价建议：可争取赠送加拍素材或二次分发授权。' : '谈价建议：以CPM/CPE数据为依据，先压至建议区间再决定合作。'
+    createdAt: new Date().toISOString(),
+    preset: stylePreset.value,
+    mood: style.mood,
+    targetDurationSec: target,
+    actualDurationSec: Number(total.toFixed(2)),
+    transitionDurationSec: transition,
+    clips
   };
 }
 
-function toMarkdown(data, metrics, scores, advice) {
-  return `# 达人诊断报告\n\n- 达人：${data.nickname}\n- 链接：${data.profileUrl}\n- 诊断总分：${scores.total}/100\n\n## 核心数据\n- 平均互动量：${metrics.avgEngagement.toFixed(0)}\n- 互动率：${(metrics.engagementRate * 100).toFixed(2)}%\n- CPM：${metrics.cpm.toFixed(2)}\n- CPE：${metrics.cpe.toFixed(2)}\n\n## 评分拆解\n- 品牌匹配度：${scores.brandFitScore}/40\n- 数据健康度：${scores.dataHealthScore}/25\n- 商业风险：${scores.riskScore}/20\n- 合作价值：${scores.valueScore}/15\n\n## 诊断结论\n- 达人类型：${advice.influencerType}\n- 品牌匹配度判断：${advice.fitJudge}\n- 数据健康度判断：${advice.dataJudge}\n- 商业风险判断：${advice.riskJudge}\n- 报价是否合理：${advice.priceJudge}\n- 建议合作形式：${advice.coopAdvice}\n- 建议报价区间：${advice.quoteRange}\n- 是否进入合作池：${advice.enterPool}\n- 风险提醒：${advice.riskAlert}\n- 谈价建议：${advice.bargainTip}\n`;
-}
-
-function getFormData() { return Object.fromEntries(new FormData(form).entries()); }
-function fillForm(data) { Object.entries(data).forEach(([k, v]) => { if (form[k]) form[k].value = v; }); }
-
-function render() {
-  const data = getFormData();
-  const metrics = calcMetrics(data);
-  const scores = calculateScore(data, metrics);
-  const advice = generateAdvice(data, metrics, scores);
-  resultBox.textContent = toMarkdown(data, metrics, scores, advice);
-}
-
-function refreshHistoryOptions() {
-  const items = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-  historySelect.innerHTML = '<option value="">选择历史记录</option>';
-  items.forEach((item, idx) => {
-    const op = document.createElement('option');
-    op.value = String(idx);
-    op.textContent = `${item.nickname || '未命名'} - ${new Date(item.savedAt).toLocaleString()}`;
-    historySelect.appendChild(op);
+function planToText(plan) {
+  if (!plan || !plan.clips.length) return '素材不足，至少上传1个可读取时长的视频。';
+  const lines = [];
+  lines.push(`Vlog风格：${plan.preset}（${plan.mood}）`);
+  lines.push(`目标时长：${plan.targetDurationSec}s，预计成片：${plan.actualDurationSec}s`);
+  lines.push('');
+  lines.push('粗剪时间线：');
+  plan.clips.forEach((c, i) => {
+    lines.push(`${i + 1}. ${c.source} | ${seconds(c.start)} - ${seconds(c.end)} | 片段时长 ${seconds(c.duration)} | 转场 ${seconds(c.transition)}`);
   });
+  lines.push('');
+  lines.push('建议：按上述顺序导入剪映 / PR / CapCut，套用统一 LUT 与背景音乐后即可导出。');
+  return lines.join('\n');
 }
 
-form.addEventListener('submit', (e) => { e.preventDefault(); render(); });
-document.getElementById('loadSample').addEventListener('click', () => fillForm(sampleData));
-document.getElementById('copyResult').addEventListener('click', async () => { await navigator.clipboard.writeText(resultBox.textContent); alert('结果已复制'); });
-document.getElementById('downloadMarkdown').addEventListener('click', () => {
-  const blob = new Blob([resultBox.textContent], { type: 'text/markdown;charset=utf-8' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '达人诊断报告.md'; a.click(); URL.revokeObjectURL(a.href);
-});
-document.getElementById('saveHistory').addEventListener('click', () => {
-  const data = getFormData();
-  const items = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-  items.unshift({ ...data, savedAt: Date.now() });
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(items.slice(0, 30)));
-  refreshHistoryOptions();
-  alert('已保存到本地历史');
-});
-document.getElementById('loadHistory').addEventListener('click', () => {
-  const idx = historySelect.value;
-  if (idx === '') return;
-  const items = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-  fillForm(items[Number(idx)] || {});
-});
-document.getElementById('clearHistory').addEventListener('click', () => {
-  localStorage.removeItem(HISTORY_KEY); refreshHistoryOptions();
-});
-
-refreshHistoryOptions();
-
-
-const screenshotInputs = Array.from(document.querySelectorAll('.screenshot-panel input[type="file"]'));
-const previewTypeMap = {
-  profileScreenshotPreview: 'profile',
-  recentPostsScreenshotPreview: 'recentPosts',
-  priceScreenshotPreview: 'price',
-  audienceScreenshotPreview: 'audience'
-};
-const typeToPreviewId = Object.fromEntries(Object.entries(previewTypeMap).map(([k, v]) => [v, k]));
-const pendingScreenshots = document.getElementById('pendingScreenshots');
-const ocrStatus = document.getElementById('ocrStatus');
-const screenshotStore = [];
-const recognizedFormFieldMap = {
-  recognizedProfileUrl: 'profileUrl',
-  recognizedNickname: 'nickname',
-  recognizedFollowers: 'followers',
-  recognizedAvgLikes: 'avgLikes',
-  recognizedAvgSaves: 'avgSaves',
-  recognizedAvgComments: 'avgComments',
-  recognizedMedianViews: 'medianViews',
-  recognizedPrice: 'price',
-  recognizedAudienceProfile: 'audienceProfile'
-};
-const ocrStatusMap = {
-  idle: '等待截图',
-  processing: '已收到截图，正在识别中...',
-  success: '识别完成，请核对结果',
-  error: '识别失败，请手动填写',
-  unknown: '无法判断截图类型，请手动选择'
-};
-
-function setOcrStatus(status) {
-  if (!ocrStatus) return;
-  ocrStatus.dataset.status = status;
-  ocrStatus.textContent = ocrStatusMap[status] || ocrStatusMap.idle;
+async function ensureFFmpeg() {
+  if (ffmpeg) return ffmpeg;
+  const { FFmpeg } = window.FFmpegWASM;
+  ffmpeg = new FFmpeg();
+  await ffmpeg.load({
+    coreURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js'
+  });
+  return ffmpeg;
 }
 
-function parseChineseNumber(raw) {
-  if (!raw) return null;
-  const text = String(raw).replace(/[,\s]/g, '');
-  const matched = text.match(/(\d+(?:\.\d+)?)(万|w|W|千|k|K)?/);
-  if (!matched) return null;
-  let value = Number(matched[1]);
-  if (!Number.isFinite(value)) return null;
-  const unit = matched[2];
-  if (unit === '万' || unit === 'w' || unit === 'W') value *= 10000;
-  if (unit === '千' || unit === 'k' || unit === 'K') value *= 1000;
-  return Math.round(value);
-}
+async function generateVideo(plan) {
+  if (!plan || !plan.clips.length) throw new Error('请先生成有效剪辑计划');
+  const current = await ensureFFmpeg();
+  const { fetchFile } = window.FFmpegUtil;
 
-function extractMetric(text, labels) {
-  const rows = String(text || '').split(/\n|[|]/);
-  for (const row of rows) {
-    if (!labels.some((label) => row.includes(label))) continue;
-    const value = parseChineseNumber(row);
-    if (value !== null) return value;
-  }
-  return null;
-}
-
-function fillRecognizedField(name, value) {
-  if (value === null || value === undefined || Number.isNaN(value)) return;
-  const input = document.querySelector(`[name="${name}"]`);
-  if (input) input.value = String(value);
-}
-
-function fillRecognizedFieldsFromText(allText) {
-  fillRecognizedField('recognizedFollowers', extractMetric(allText, ['粉丝']));
-  fillRecognizedField('recognizedAvgLikes', extractMetric(allText, ['平均点赞', '点赞均值', '点赞']));
-  fillRecognizedField('recognizedAvgSaves', extractMetric(allText, ['平均收藏', '收藏均值', '收藏']));
-  fillRecognizedField('recognizedAvgComments', extractMetric(allText, ['平均评论', '评论均值', '评论']));
-  fillRecognizedField('recognizedMedianViews', extractMetric(allText, ['阅读中位数', '中位阅读', '平均阅读', '阅读']));
-  fillRecognizedField('recognizedPrice', extractMetric(allText, ['报价', '刊例价', '合作价格', '价格', '¥', '元']));
-}
-
-function handleScreenshotPreview(input) {
-  const previewId = input.dataset.preview;
-  const preview = previewId ? document.getElementById(previewId) : null;
-  if (!preview) return;
-
-  const file = input.files && input.files[0];
-  if (!file) {
-    preview.removeAttribute('src');
-    preview.classList.remove('is-visible');
-    return;
+  setProgress('reading', '正在读取视频...');
+  for (const asset of assets) {
+    await current.writeFile(asset.name, await fetchFile(asset.file));
   }
 
-  const reader = new FileReader();
-  reader.onload = () => {
-    preview.src = String(reader.result || '');
-    preview.classList.add('is-visible');
-  };
-  reader.readAsDataURL(file);
+  const clipFiles = [];
+  setProgress('cutting', '正在裁剪...');
+  for (let i = 0; i < plan.clips.length; i += 1) {
+    const clip = plan.clips[i];
+    const clipFile = `clip_${String(i).padStart(3, '0')}.mp4`;
+    clipFiles.push(clipFile);
+    await current.exec([
+      '-ss', String(clip.start),
+      '-to', String(clip.end),
+      '-i', clip.source,
+      '-c:v', 'libx264',
+      '-c:a', 'aac',
+      '-preset', 'veryfast',
+      '-movflags', '+faststart',
+      clipFile
+    ]);
+  }
+
+  setProgress('merging', '正在合并...');
+  const concatText = clipFiles.map((f) => `file '${f}'`).join('\n');
+  await current.writeFile('concat.txt', new TextEncoder().encode(concatText));
+  await current.exec(['-f', 'concat', '-safe', '0', '-i', 'concat.txt', '-c', 'copy', 'output.mp4']);
+
+  const out = await current.readFile('output.mp4');
+  const blob = new Blob([out.buffer], { type: 'video/mp4' });
+  finalVideoBlob = blob;
+  previewVideo.src = URL.createObjectURL(blob);
+  downloadVideoBtn.disabled = false;
+  setProgress('done', '生成完成');
 }
 
-function setOcrText(type, text) {
-  const el = document.querySelector(`[data-ocr-text="${type}"]`);
-  if (el) el.textContent = text || '（未识别到文字）';
-}
+videoInput.addEventListener('change', async () => {
+  setProgress('reading', '正在读取视频...');
+  const files = Array.from(videoInput.files || []);
+  assets = [];
+  for (const file of files) {
+    const meta = await readVideoMeta(file);
+    assets.push(meta);
+  }
+  renderAssets();
+  latestPlan = null;
+  finalVideoBlob = null;
+  previewVideo.removeAttribute('src');
+  downloadVideoBtn.disabled = true;
+  setProgress('idle', `已加载 ${assets.length} 个素材`);
+  timeline.textContent = `已加载 ${assets.length} 个素材，请点击“分析素材并自动粗剪”。`;
+});
 
-async function ensureTesseract() {
-  if (window.Tesseract) return window.Tesseract;
-  await new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-    s.onload = resolve;
-    s.onerror = () => reject(new Error('OCR 引擎加载失败'));
-    document.head.appendChild(s);
-  });
-  return window.Tesseract;
-}
+analyzeBtn.addEventListener('click', () => {
+  latestPlan = buildRoughCutPlan();
+  timeline.textContent = planToText(latestPlan);
+});
 
-function classifyByKeywords(text) {
-  const t = (text || '').toLowerCase();
-  const rules = [
-    ['profile', ['主页', '昵称', '粉丝', '获赞', '笔记']],
-    ['recentPosts', ['近10', '点赞', '评论', '收藏', '阅读']],
-    ['price', ['报价', '刊例', '合作', '预算', '元']],
-    ['audience', ['粉丝画像', '年龄', '性别', '地域', '占比']]
-  ];
-  let best = ['', 0];
-  rules.forEach(([type, keys]) => {
-    const score = keys.reduce((s, k) => s + (t.includes(k) ? 1 : 0), 0);
-    if (score > best[1]) best = [type, score];
-  });
-  return best[1] >= 2 ? best[0] : '';
-}
-
-function placeScreenshot(type, dataUrl, ocrText) {
-  const preview = document.getElementById(typeToPreviewId[type]);
-  if (!preview) return;
-  preview.src = dataUrl;
-  preview.classList.add('is-visible');
-  setOcrText(type, ocrText);
-}
-
-function addPendingScreenshot(dataUrl, ocrText) {
-  const row = document.createElement('div');
-  row.className = 'pending-item';
-  row.innerHTML = `<img src="${dataUrl}" alt="待确认截图"/><details class="ocr-details"><summary>识别到的文字</summary><pre class="ocr-text">${ocrText || '（未识别到文字）'}</pre></details>
-  <select><option value="">请选择截图类型</option><option value="profile">达人主页截图</option><option value="recentPosts">近10篇数据截图</option><option value="price">报价截图</option><option value="audience">粉丝画像截图</option></select>`;
-  row.querySelector('select').addEventListener('change', (e) => {
-    const type = e.target.value;
-    if (!type) return;
-    placeScreenshot(type, dataUrl, ocrText);
-    setOcrStatus('success');
-    row.remove();
-  });
-  pendingScreenshots.prepend(row);
-}
-
-async function processImageFile(file) {
-  const dataUrl = await new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.readAsDataURL(file);
-  });
-  screenshotStore.push({ file, dataUrl, source: 'clipboard-or-upload' });
-  setOcrStatus('processing');
-  let ocrText = '';
+renderBtn.addEventListener('click', async () => {
   try {
-    const Tesseract = await ensureTesseract();
-    const result = await Tesseract.recognize(file, 'chi_sim+eng');
-    ocrText = result.data.text || '';
-  } catch (e) {
-    console.warn(e);
-    setOcrStatus('error');
-    alert('识别失败，请手动填写识别结果。');
+    if (!latestPlan) latestPlan = buildRoughCutPlan();
+    timeline.textContent = planToText(latestPlan);
+    await generateVideo(latestPlan);
+  } catch (error) {
+    console.error(error);
+    setProgress('error', `处理失败：${error.message || '未知错误'}`);
+    alert('生成失败，请检查素材编码是否兼容或稍后重试。');
   }
-  const type = classifyByKeywords(ocrText);
-  if (type) {
-    placeScreenshot(type, dataUrl, ocrText);
-    setOcrStatus('success');
-  } else {
-    addPendingScreenshot(dataUrl, ocrText);
-    if (ocrText.trim()) setOcrStatus('unknown');
-  }
-}
-
-function applyRecognizedDataToDiagnosisForm() {
-  Object.entries(recognizedFormFieldMap).forEach(([recognizedName, diagnosisName]) => {
-    const recognizedField = document.querySelector(`[name="${recognizedName}"]`);
-    if (!recognizedField) return;
-
-    const value = (recognizedField.value || '').trim();
-    if (!value) return;
-
-    if (form[diagnosisName]) {
-      form[diagnosisName].value = value;
-    }
-  });
-  alert('已将识别结果确认区内容填入诊断表单。');
-}
-
-screenshotInputs.forEach((input) => {
-  input.addEventListener('change', async () => {
-    handleScreenshotPreview(input);
-    const file = input.files && input.files[0];
-    if (file) await processImageFile(file);
-  });
 });
 
-document.getElementById('recognizeFromScreenshots').addEventListener('click', async () => {
-  if (!screenshotStore.length) {
-    setOcrStatus('idle');
-    alert('请先上传或粘贴截图。');
+downloadVideoBtn.addEventListener('click', () => {
+  if (!finalVideoBlob) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(finalVideoBlob);
+  a.download = 'vlog-final.mp4';
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+downloadPlanBtn.addEventListener('click', () => {
+  if (!latestPlan) {
+    alert('请先生成剪辑计划');
     return;
   }
-  setOcrStatus('processing');
-  const texts = [];
-  let hasError = false;
-  for (const item of screenshotStore) {
-    try {
-      const Tesseract = await ensureTesseract();
-      const result = await Tesseract.recognize(item.file, 'chi_sim+eng');
-      const ocrText = result.data.text || '';
-      texts.push(ocrText);
-      const inferredType = classifyByKeywords(ocrText);
-      if (inferredType) placeScreenshot(inferredType, item.dataUrl, ocrText);
-    } catch (error) {
-      console.warn(error);
-      hasError = true;
-    }
-  }
-  fillRecognizedFieldsFromText(texts.join('\n'));
-  if (hasError) {
-    setOcrStatus('error');
-    alert('识别失败，请手动填写识别结果。');
-  } else {
-    setOcrStatus('success');
-  }
+  const blob = new Blob([JSON.stringify(latestPlan, null, 2)], { type: 'application/json;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'vlog-rough-cut-plan.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
 });
 
-document.getElementById('applyRecognizedData').addEventListener('click', applyRecognizedDataToDiagnosisForm);
-
-document.addEventListener('paste', async (e) => {
-  const items = e.clipboardData?.items || [];
-  const imageItem = Array.from(items).find((item) => item.type.startsWith('image/'));
-  if (!imageItem) return;
-  const file = imageItem.getAsFile();
-  if (!file) return;
-  e.preventDefault();
-  await processImageFile(file);
+copyPromptBtn.addEventListener('click', async () => {
+  if (!latestPlan) {
+    alert('请先生成剪辑计划');
+    return;
+  }
+  const prompt = `请按以下粗剪计划自动剪成 Vlog，并保持节奏统一：\n\n${planToText(latestPlan)}`;
+  await navigator.clipboard.writeText(prompt);
+  alert('已复制，可粘贴给剪辑软件或AI工具。');
 });
