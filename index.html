@@ -18,7 +18,7 @@
 
         <section class="screenshot-panel">
           <h3>截图上传区</h3>
-          <p class="hint">支持上传：达人主页截图、近10篇数据截图、报价截图、粉丝画像截图。</p>
+          <p class="hint">支持上传：达人主页截图、近10篇数据截图、报价截图、粉丝画像截图；也支持任意位置 Ctrl+V 粘贴截图。</p>
           <div class="screenshot-grid">
             <label class="upload-item">达人主页截图<input type="file" accept="image/*" data-preview="profileScreenshotPreview" /></label>
             <label class="upload-item">近10篇数据截图<input type="file" accept="image/*" data-preview="recentPostsScreenshotPreview" /></label>
@@ -27,11 +27,16 @@
           </div>
 
           <div class="preview-grid">
-            <div class="preview-card"><h4>达人主页截图预览</h4><img id="profileScreenshotPreview" class="preview-image" alt="达人主页截图预览" /></div>
-            <div class="preview-card"><h4>近10篇数据截图预览</h4><img id="recentPostsScreenshotPreview" class="preview-image" alt="近10篇数据截图预览" /></div>
-            <div class="preview-card"><h4>报价截图预览</h4><img id="priceScreenshotPreview" class="preview-image" alt="报价截图预览" /></div>
-            <div class="preview-card"><h4>粉丝画像截图预览</h4><img id="audienceScreenshotPreview" class="preview-image" alt="粉丝画像截图预览" /></div>
+            <div class="preview-card"><h4>达人主页截图预览</h4><img id="profileScreenshotPreview" class="preview-image" alt="达人主页截图预览" /><details class="ocr-details"><summary>识别到的文字</summary><pre class="ocr-text" data-ocr-text="profile"></pre></details></div>
+            <div class="preview-card"><h4>近10篇数据截图预览</h4><img id="recentPostsScreenshotPreview" class="preview-image" alt="近10篇数据截图预览" /><details class="ocr-details"><summary>识别到的文字</summary><pre class="ocr-text" data-ocr-text="recentPosts"></pre></details></div>
+            <div class="preview-card"><h4>报价截图预览</h4><img id="priceScreenshotPreview" class="preview-image" alt="报价截图预览" /><details class="ocr-details"><summary>识别到的文字</summary><pre class="ocr-text" data-ocr-text="price"></pre></details></div>
+            <div class="preview-card"><h4>粉丝画像截图预览</h4><img id="audienceScreenshotPreview" class="preview-image" alt="粉丝画像截图预览" /><details class="ocr-details"><summary>识别到的文字</summary><pre class="ocr-text" data-ocr-text="audience"></pre></details></div>
           </div>
+          <section class="pending-panel">
+            <h4>待确认截图</h4>
+            <p class="hint">无法自动分类时会进入此区域，请手动选择类型。</p>
+            <div id="pendingScreenshots" class="pending-list"></div>
+          </section>
 
           <div class="actions">
             <button type="button" id="recognizeFromScreenshots">从截图识别信息</button>
