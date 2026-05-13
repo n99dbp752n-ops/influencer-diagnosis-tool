@@ -4,16 +4,16 @@
 
 > 第一版不做自动抓取，避免平台抓取风险。截图内容先人工看图填写，后续可再接 OCR/AI。
 
-## 你能做什么
+## 你能做什么（保留 main 版本能力）
 
 - 录入达人核心字段（链接、粉丝、近10篇数据、报价、调性、风险等）
 - 自动计算：平均互动量、互动率、CPM、CPE
-- 自动评分（总分100）：
+- 自动评分（总分100）
   - 品牌匹配度 40
   - 数据健康度 25
   - 商业风险 20
   - 合作价值 15
-- 自动给出中文建议：
+- 自动给出中文建议
   - 达人类型
   - 匹配/数据/风险判断
   - 报价合理性
@@ -36,72 +36,74 @@
 └── README.md
 ```
 
-## 快速运行（本地）
+## 本地运行
 
 ### 方式一：直接打开
 双击 `index.html`，使用浏览器打开即可。
 
 ### 方式二：本地静态服务（推荐）
-在项目目录运行：
 
 ```bash
 python3 -m http.server 8080
 ```
 
-然后访问：
+访问：
 
 ```text
 http://localhost:8080
 ```
 
-## 部署到 GitHub Pages（推荐）
+## GitHub Pages 部署（合并新增说明）
 
-仓库已经包含可直接使用的 Pages 工作流：`.github/workflows/deploy-pages.yml`。
+仓库已包含工作流：`.github/workflows/deploy-pages.yml`。
 
-### 1）在 GitHub 仓库里开启 Pages
-1. 打开仓库页面，进入 **Settings → Pages**。
-2. 在 **Build and deployment** 里，`Source` 选择 **GitHub Actions**。
-3. 保存即可。
+### 1）开启 Pages
+1. 打开仓库：**Settings → Pages**
+2. 在 **Build and deployment** 中将 `Source` 选择为 **GitHub Actions**
+3. 保存
 
 ### 2）触发部署
-- 合并/推送到 `main` 分支会自动触发部署；
-- 也可以去 **Actions** 页面手动运行 `Deploy static site to GitHub Pages`（workflow_dispatch）。
+- 推送到 `main` 分支会自动部署；
+- 或在 **Actions** 页面手动运行 `Deploy static site to GitHub Pages`。
 
 ### 3）查看最终访问链接
-部署成功后可在以下位置看到网址：
-- **Actions** → 最新一次 `Deploy static site to GitHub Pages` 任务详情中的 `page_url`；
-- 或 **Settings → Pages** 顶部的站点地址。
+部署完成后在以下任一位置查看：
+- **Actions** 里最新部署任务的 `page_url`；
+- **Settings → Pages** 顶部站点地址。
 
-通常链接格式是：
+常见地址格式：
 
 ```text
-https://<你的GitHub用户名>.github.io/<仓库名>/
+https://<GitHub用户名>.github.io/<仓库名>/
 ```
 
-> 例如仓库名是 `influencer-diagnosis-tool`，则通常为：
-> `https://<你的GitHub用户名>.github.io/influencer-diagnosis-tool/`
+例如仓库名 `influencer-diagnosis-tool`：
+
+```text
+https://<GitHub用户名>.github.io/influencer-diagnosis-tool/
+```
 
 ## 示例数据
 
-页面里点击“**填充示例数据**”即可自动填入一条示例，用来演示完整结果。
+页面点击“**填充示例数据**”可快速演示完整结果。
 
-## 规则说明（MVP可改）
+## 规则说明（MVP 可调整）
 
 - 高匹配 + 数据好 + 报价合理 → 建议重点合作
-- 高匹配 + 数据一般 + 内容好 → 建议寄样+低服务费测试
+- 高匹配 + 数据一般 + 内容好 → 建议寄样 + 低服务费测试
 - 数据好 + 品牌不匹配 → 谨慎测试，不做主推
-- 报价高 + 数据撑不住 → 建议压价/换方式/暂不合作
+- 报价高 + 数据撑不住 → 建议压价 / 换方式 / 暂不合作
 - 广告密度高或执行风险高 → 不建议进入本期合作池
 
 报价建议：
-- 高匹配+数据好：当前报价 80%-100%
-- 高匹配+数据一般：当前报价 50%-70%
-- 数据好+调性一般：当前报价 50%-70%
-- 数据一般+调性一般：置换或低预算
+- 高匹配 + 数据好：当前报价 80%-100%
+- 高匹配 + 数据一般：当前报价 50%-70%
+- 数据好 + 调性一般：当前报价 50%-70%
+- 数据一般 + 调性一般：置换或低预算
 - 执行风险高：不建议合作
 
 ## 下一步建议（第二版）
 
 - 接入截图 OCR（自动提取点赞/收藏/评论/报价）
 - 接入 AI 识别（内容调性、画面质感、广告密度辅助判断）
-- 增加可配置打分规则（让不同品牌有自己的权重模板）
+- 增加可配置打分规则（不同品牌可自定义权重）
