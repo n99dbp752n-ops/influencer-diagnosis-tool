@@ -79,6 +79,60 @@
           </div>
         </form>
 
+        <h3>② 截图上传区</h3>
+        <div class="upload-grid">
+          <label class="upload-card">达人主页截图
+            <input type="file" id="shotProfile" accept="image/*" />
+            <img id="previewProfile" class="preview" alt="达人主页截图预览" />
+          </label>
+          <label class="upload-card">近10篇数据截图
+            <input type="file" id="shotData" accept="image/*" />
+            <img id="previewData" class="preview" alt="近10篇数据截图预览" />
+          </label>
+          <label class="upload-card">报价截图
+            <input type="file" id="shotPrice" accept="image/*" />
+            <img id="previewPrice" class="preview" alt="报价截图预览" />
+          </label>
+          <label class="upload-card">粉丝画像截图
+            <input type="file" id="shotAudience" accept="image/*" />
+            <img id="previewAudience" class="preview" alt="粉丝画像截图预览" />
+          </label>
+        </div>
+        <div class="actions">
+          <button type="button" id="mockOcrBtn">从截图识别信息</button>
+        </div>
+
+        <h3>③ 识别结果确认区（人工核对后再填入）</h3>
+        <div class="grid">
+          <label>粉丝量<input id="confirmFollowers" type="number" min="0" step="1" /></label>
+          <label>近10篇平均点赞<input id="confirmAvgLikes" type="number" min="0" step="1" /></label>
+          <label>近10篇平均收藏<input id="confirmAvgSaves" type="number" min="0" step="1" /></label>
+          <label>近10篇平均评论<input id="confirmAvgComments" type="number" min="0" step="1" /></label>
+          <label>阅读中位数<input id="confirmMedianViews" type="number" min="1" step="1" /></label>
+          <label>报价（元）<input id="confirmPrice" type="number" min="0" step="1" /></label>
+          <label>粉丝画像
+            <select id="confirmAudienceProfile">
+              <option value="">请选择</option>
+              <option>女性为主25-40岁</option><option>女性为主30-50岁</option><option>偏年轻</option><option>不匹配</option>
+            </select>
+          </label>
+          <label>广告密度
+            <select id="confirmAdDensity">
+              <option value="">请选择</option>
+              <option>低</option><option>中</option><option>高</option>
+            </select>
+          </label>
+          <label>内容气质
+            <select id="confirmContentStyle">
+              <option value="">请选择</option>
+              <option>简约</option><option>松弛</option><option>精致</option><option>网红感</option><option>强种草</option><option>其他</option>
+            </select>
+          </label>
+        </div>
+        <div class="actions">
+          <button type="button" id="applyConfirmBtn">填入诊断表单</button>
+        </div>
+
         <h3>本地历史记录</h3>
         <div class="history-actions">
           <select id="historySelect"><option value="">选择历史记录</option></select>
@@ -88,7 +142,7 @@
       </section>
 
       <section class="panel result-panel">
-        <h2>② 诊断结果</h2>
+        <h2>④ 诊断结果</h2>
         <div id="resultBox" class="result-box">请先录入左侧信息并点击“生成诊断结果”。</div>
         <div class="actions">
           <button type="button" id="copyResult">复制结果</button>

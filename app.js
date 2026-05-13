@@ -129,6 +129,43 @@ function refreshHistoryOptions() {
   });
 }
 
+function bindPreview(inputId, previewId) {
+  const input = document.getElementById(inputId);
+  const preview = document.getElementById(previewId);
+  input.addEventListener('change', () => {
+    const [file] = input.files || [];
+    if (!file) {
+      preview.src = '';
+      preview.classList.remove('show');
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    preview.src = url;
+    preview.classList.add('show');
+  });
+}
+
+function applyConfirmToForm() {
+  const mapping = [
+    ['confirmFollowers', 'followers'],
+    ['confirmAvgLikes', 'avgLikes'],
+    ['confirmAvgSaves', 'avgSaves'],
+    ['confirmAvgComments', 'avgComments'],
+    ['confirmMedianViews', 'medianViews'],
+    ['confirmPrice', 'price'],
+    ['confirmAudienceProfile', 'audienceProfile'],
+    ['confirmAdDensity', 'adDensity'],
+    ['confirmContentStyle', 'contentStyle']
+  ];
+
+  mapping.forEach(([sourceId, targetName]) => {
+    const source = document.getElementById(sourceId);
+    if (!source || !form[targetName]) return;
+    if (source.value !== '') form[targetName].value = source.value;
+  });
+  alert('已将识别结果确认区内容填入诊断表单，请检查后生成诊断结果。');
+}
+
 form.addEventListener('submit', (e) => { e.preventDefault(); render(); });
 document.getElementById('loadSample').addEventListener('click', () => fillForm(sampleData));
 document.getElementById('copyResult').addEventListener('click', async () => { await navigator.clipboard.writeText(resultBox.textContent); alert('结果已复制'); });
@@ -153,5 +190,15 @@ document.getElementById('loadHistory').addEventListener('click', () => {
 document.getElementById('clearHistory').addEventListener('click', () => {
   localStorage.removeItem(HISTORY_KEY); refreshHistoryOptions();
 });
+
+document.getElementById('mockOcrBtn').addEventListener('click', () => {
+  alert('当前版本暂未接入 OCR，请人工核对后填写识别结果。');
+});
+document.getElementById('applyConfirmBtn').addEventListener('click', applyConfirmToForm);
+
+bindPreview('shotProfile', 'previewProfile');
+bindPreview('shotData', 'previewData');
+bindPreview('shotPrice', 'previewPrice');
+bindPreview('shotAudience', 'previewAudience');
 
 refreshHistoryOptions();
