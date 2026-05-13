@@ -166,6 +166,8 @@ const previewTypeMap = {
 };
 const typeToPreviewId = Object.fromEntries(Object.entries(previewTypeMap).map(([k, v]) => [v, k]));
 const pendingScreenshots = document.getElementById('pendingScreenshots');
+const ocrStatus = document.getElementById('ocrStatus');
+const screenshotStore = [];
 const recognizedFormFieldMap = {
   recognizedProfileUrl: 'profileUrl',
   recognizedNickname: 'nickname',
@@ -177,6 +179,57 @@ const recognizedFormFieldMap = {
   recognizedPrice: 'price',
   recognizedAudienceProfile: 'audienceProfile'
 };
+const ocrStatusMap = {
+  idle: '等待截图',
+  processing: '已收到截图，正在识别中...',
+  success: '识别完成，请核对结果',
+  error: '识别失败，请手动填写',
+  unknown: '无法判断截图类型，请手动选择'
+};
+
+function setOcrStatus(status) {
+  if (!ocrStatus) return;
+  ocrStatus.dataset.status = status;
+  ocrStatus.textContent = ocrStatusMap[status] || ocrStatusMap.idle;
+}
+
+function parseChineseNumber(raw) {
+  if (!raw) return null;
+  const text = String(raw).replace(/[,\s]/g, '');
+  const matched = text.match(/(\d+(?:\.\d+)?)(万|w|W|千|k|K)?/);
+  if (!matched) return null;
+  let value = Number(matched[1]);
+  if (!Number.isFinite(value)) return null;
+  const unit = matched[2];
+  if (unit === '万' || unit === 'w' || unit === 'W') value *= 10000;
+  if (unit === '千' || unit === 'k' || unit === 'K') value *= 1000;
+  return Math.round(value);
+}
+
+function extractMetric(text, labels) {
+  const rows = String(text || '').split(/\n|[|]/);
+  for (const row of rows) {
+    if (!labels.some((label) => row.includes(label))) continue;
+    const value = parseChineseNumber(row);
+    if (value !== null) return value;
+  }
+  return null;
+}
+
+function fillRecognizedField(name, value) {
+  if (value === null || value === undefined || Number.isNaN(value)) return;
+  const input = document.querySelector(`[name="${name}"]`);
+  if (input) input.value = String(value);
+}
+
+function fillRecognizedFieldsFromText(allText) {
+  fillRecognizedField('recognizedFollowers', extractMetric(allText, ['粉丝']));
+  fillRecognizedField('recognizedAvgLikes', extractMetric(allText, ['平均点赞', '点赞均值', '点赞']));
+  fillRecognizedField('recognizedAvgSaves', extractMetric(allText, ['平均收藏', '收藏均值', '收藏']));
+  fillRecognizedField('recognizedAvgComments', extractMetric(allText, ['平均评论', '评论均值', '评论']));
+  fillRecognizedField('recognizedMedianViews', extractMetric(allText, ['阅读中位数', '中位阅读', '平均阅读', '阅读']));
+  fillRecognizedField('recognizedPrice', extractMetric(allText, ['报价', '刊例价', '合作价格', '价格', '¥', '元']));
+}
 
 function handleScreenshotPreview(input) {
   const previewId = input.dataset.preview;
@@ -248,6 +301,7 @@ function addPendingScreenshot(dataUrl, ocrText) {
     const type = e.target.value;
     if (!type) return;
     placeScreenshot(type, dataUrl, ocrText);
+    setOcrStatus('success');
     row.remove();
   });
   pendingScreenshots.prepend(row);
@@ -259,6 +313,8 @@ async function processImageFile(file) {
     reader.onload = () => resolve(String(reader.result || ''));
     reader.readAsDataURL(file);
   });
+  screenshotStore.push({ file, dataUrl, source: 'clipboard-or-upload' });
+  setOcrStatus('processing');
   let ocrText = '';
   try {
     const Tesseract = await ensureTesseract();
@@ -266,10 +322,17 @@ async function processImageFile(file) {
     ocrText = result.data.text || '';
   } catch (e) {
     console.warn(e);
+    setOcrStatus('error');
+    alert('识别失败，请手动填写识别结果。');
   }
   const type = classifyByKeywords(ocrText);
-  if (type) placeScreenshot(type, dataUrl, ocrText);
-  else addPendingScreenshot(dataUrl, ocrText);
+  if (type) {
+    placeScreenshot(type, dataUrl, ocrText);
+    setOcrStatus('success');
+  } else {
+    addPendingScreenshot(dataUrl, ocrText);
+    if (ocrText.trim()) setOcrStatus('unknown');
+  }
 }
 
 function applyRecognizedDataToDiagnosisForm() {
@@ -288,11 +351,42 @@ function applyRecognizedDataToDiagnosisForm() {
 }
 
 screenshotInputs.forEach((input) => {
-  input.addEventListener('change', () => handleScreenshotPreview(input));
+  input.addEventListener('change', async () => {
+    handleScreenshotPreview(input);
+    const file = input.files && input.files[0];
+    if (file) await processImageFile(file);
+  });
 });
 
-document.getElementById('recognizeFromScreenshots').addEventListener('click', () => {
-  alert('已启用 OCR 辅助分类。也可直接 Ctrl+V 粘贴截图自动处理。');
+document.getElementById('recognizeFromScreenshots').addEventListener('click', async () => {
+  if (!screenshotStore.length) {
+    setOcrStatus('idle');
+    alert('请先上传或粘贴截图。');
+    return;
+  }
+  setOcrStatus('processing');
+  const texts = [];
+  let hasError = false;
+  for (const item of screenshotStore) {
+    try {
+      const Tesseract = await ensureTesseract();
+      const result = await Tesseract.recognize(item.file, 'chi_sim+eng');
+      const ocrText = result.data.text || '';
+      texts.push(ocrText);
+      const inferredType = classifyByKeywords(ocrText);
+      if (inferredType) placeScreenshot(inferredType, item.dataUrl, ocrText);
+    } catch (error) {
+      console.warn(error);
+      hasError = true;
+    }
+  }
+  fillRecognizedFieldsFromText(texts.join('\n'));
+  if (hasError) {
+    setOcrStatus('error');
+    alert('识别失败，请手动填写识别结果。');
+  } else {
+    setOcrStatus('success');
+  }
 });
 
 document.getElementById('applyRecognizedData').addEventListener('click', applyRecognizedDataToDiagnosisForm);
