@@ -155,3 +155,62 @@ document.getElementById('clearHistory').addEventListener('click', () => {
 });
 
 refreshHistoryOptions();
+
+
+const screenshotInputs = Array.from(document.querySelectorAll('.screenshot-panel input[type="file"]'));
+const recognizedFormFieldMap = {
+  recognizedProfileUrl: 'profileUrl',
+  recognizedNickname: 'nickname',
+  recognizedFollowers: 'followers',
+  recognizedAvgLikes: 'avgLikes',
+  recognizedAvgSaves: 'avgSaves',
+  recognizedAvgComments: 'avgComments',
+  recognizedMedianViews: 'medianViews',
+  recognizedPrice: 'price',
+  recognizedAudienceProfile: 'audienceProfile'
+};
+
+function handleScreenshotPreview(input) {
+  const previewId = input.dataset.preview;
+  const preview = previewId ? document.getElementById(previewId) : null;
+  if (!preview) return;
+
+  const file = input.files && input.files[0];
+  if (!file) {
+    preview.removeAttribute('src');
+    preview.classList.remove('is-visible');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    preview.src = String(reader.result || '');
+    preview.classList.add('is-visible');
+  };
+  reader.readAsDataURL(file);
+}
+
+function applyRecognizedDataToDiagnosisForm() {
+  Object.entries(recognizedFormFieldMap).forEach(([recognizedName, diagnosisName]) => {
+    const recognizedField = document.querySelector(`[name="${recognizedName}"]`);
+    if (!recognizedField) return;
+
+    const value = (recognizedField.value || '').trim();
+    if (!value) return;
+
+    if (form[diagnosisName]) {
+      form[diagnosisName].value = value;
+    }
+  });
+  alert('已将识别结果确认区内容填入诊断表单。');
+}
+
+screenshotInputs.forEach((input) => {
+  input.addEventListener('change', () => handleScreenshotPreview(input));
+});
+
+document.getElementById('recognizeFromScreenshots').addEventListener('click', () => {
+  alert('当前版本暂未接入 OCR，请人工核对后填写识别结果。');
+});
+
+document.getElementById('applyRecognizedData').addEventListener('click', applyRecognizedDataToDiagnosisForm);

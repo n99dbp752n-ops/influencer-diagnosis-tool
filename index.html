@@ -15,6 +15,52 @@
     <main class="layout">
       <section class="panel input-panel">
         <h2>① 录入达人信息</h2>
+
+        <section class="screenshot-panel">
+          <h3>截图上传区</h3>
+          <p class="hint">支持上传：达人主页截图、近10篇数据截图、报价截图、粉丝画像截图。</p>
+          <div class="screenshot-grid">
+            <label class="upload-item">达人主页截图<input type="file" accept="image/*" data-preview="profileScreenshotPreview" /></label>
+            <label class="upload-item">近10篇数据截图<input type="file" accept="image/*" data-preview="recentPostsScreenshotPreview" /></label>
+            <label class="upload-item">报价截图<input type="file" accept="image/*" data-preview="priceScreenshotPreview" /></label>
+            <label class="upload-item">粉丝画像截图<input type="file" accept="image/*" data-preview="audienceScreenshotPreview" /></label>
+          </div>
+
+          <div class="preview-grid">
+            <div class="preview-card"><h4>达人主页截图预览</h4><img id="profileScreenshotPreview" class="preview-image" alt="达人主页截图预览" /></div>
+            <div class="preview-card"><h4>近10篇数据截图预览</h4><img id="recentPostsScreenshotPreview" class="preview-image" alt="近10篇数据截图预览" /></div>
+            <div class="preview-card"><h4>报价截图预览</h4><img id="priceScreenshotPreview" class="preview-image" alt="报价截图预览" /></div>
+            <div class="preview-card"><h4>粉丝画像截图预览</h4><img id="audienceScreenshotPreview" class="preview-image" alt="粉丝画像截图预览" /></div>
+          </div>
+
+          <div class="actions">
+            <button type="button" id="recognizeFromScreenshots">从截图识别信息</button>
+          </div>
+        </section>
+
+        <section class="recognition-panel">
+          <h3>识别结果确认区</h3>
+          <div class="grid">
+            <label>达人主页链接<input name="recognizedProfileUrl" placeholder="识别后可人工修正" /></label>
+            <label>达人昵称<input name="recognizedNickname" placeholder="识别后可人工修正" /></label>
+            <label>粉丝量<input name="recognizedFollowers" type="number" min="0" step="1" /></label>
+            <label>近10篇平均点赞<input name="recognizedAvgLikes" type="number" min="0" step="1" /></label>
+            <label>近10篇平均收藏<input name="recognizedAvgSaves" type="number" min="0" step="1" /></label>
+            <label>近10篇平均评论<input name="recognizedAvgComments" type="number" min="0" step="1" /></label>
+            <label>阅读中位数<input name="recognizedMedianViews" type="number" min="1" step="1" /></label>
+            <label>报价（元）<input name="recognizedPrice" type="number" min="0" step="1" /></label>
+            <label>粉丝画像
+              <select name="recognizedAudienceProfile">
+                <option value="">请选择</option>
+                <option>女性为主25-40岁</option><option>女性为主30-50岁</option><option>偏年轻</option><option>不匹配</option>
+              </select>
+            </label>
+          </div>
+          <div class="actions">
+            <button type="button" id="applyRecognizedData">填入诊断表单</button>
+          </div>
+        </section>
+
         <form id="diagnosisForm">
           <div class="grid">
             <label>达人主页链接<input name="profileUrl" type="url" placeholder="https://..." required /></label>
