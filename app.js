@@ -265,10 +265,9 @@ document.querySelectorAll('.change-type-btn').forEach((btn) => {
     const sourceType = btn.dataset.type;
     const preview = document.getElementById(screenshotTypeMeta[sourceType].previewId);
     if (!preview.src) return;
-    const targetType = prompt('请输入新类型：profile/recentPosts/price/audience');
-    if (!targetType || !screenshotTypeMeta[targetType]) return;
     const text = document.getElementById(`${sourceType}OcrText`).textContent;
-    setScreenshotPreview(targetType, preview.src, text);
+    showPendingScreenshot(preview.src, text);
+    document.getElementById('pendingTypeSelect').value = sourceType;
     preview.removeAttribute('src');
     preview.classList.remove('is-visible');
     document.getElementById(`${sourceType}OcrDetails`).classList.add('hidden');
