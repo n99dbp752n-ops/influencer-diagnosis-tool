@@ -158,6 +158,14 @@ refreshHistoryOptions();
 
 
 const screenshotInputs = Array.from(document.querySelectorAll('.screenshot-panel input[type="file"]'));
+const previewTypeMap = {
+  profileScreenshotPreview: 'profile',
+  recentPostsScreenshotPreview: 'recentPosts',
+  priceScreenshotPreview: 'price',
+  audienceScreenshotPreview: 'audience'
+};
+const typeToPreviewId = Object.fromEntries(Object.entries(previewTypeMap).map(([k, v]) => [v, k]));
+const pendingScreenshots = document.getElementById('pendingScreenshots');
 const recognizedFormFieldMap = {
   recognizedProfileUrl: 'profileUrl',
   recognizedNickname: 'nickname',
@@ -190,6 +198,80 @@ function handleScreenshotPreview(input) {
   reader.readAsDataURL(file);
 }
 
+function setOcrText(type, text) {
+  const el = document.querySelector(`[data-ocr-text="${type}"]`);
+  if (el) el.textContent = text || '（未识别到文字）';
+}
+
+async function ensureTesseract() {
+  if (window.Tesseract) return window.Tesseract;
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('OCR 引擎加载失败'));
+    document.head.appendChild(s);
+  });
+  return window.Tesseract;
+}
+
+function classifyByKeywords(text) {
+  const t = (text || '').toLowerCase();
+  const rules = [
+    ['profile', ['主页', '昵称', '粉丝', '获赞', '笔记']],
+    ['recentPosts', ['近10', '点赞', '评论', '收藏', '阅读']],
+    ['price', ['报价', '刊例', '合作', '预算', '元']],
+    ['audience', ['粉丝画像', '年龄', '性别', '地域', '占比']]
+  ];
+  let best = ['', 0];
+  rules.forEach(([type, keys]) => {
+    const score = keys.reduce((s, k) => s + (t.includes(k) ? 1 : 0), 0);
+    if (score > best[1]) best = [type, score];
+  });
+  return best[1] >= 2 ? best[0] : '';
+}
+
+function placeScreenshot(type, dataUrl, ocrText) {
+  const preview = document.getElementById(typeToPreviewId[type]);
+  if (!preview) return;
+  preview.src = dataUrl;
+  preview.classList.add('is-visible');
+  setOcrText(type, ocrText);
+}
+
+function addPendingScreenshot(dataUrl, ocrText) {
+  const row = document.createElement('div');
+  row.className = 'pending-item';
+  row.innerHTML = `<img src="${dataUrl}" alt="待确认截图"/><details class="ocr-details"><summary>识别到的文字</summary><pre class="ocr-text">${ocrText || '（未识别到文字）'}</pre></details>
+  <select><option value="">请选择截图类型</option><option value="profile">达人主页截图</option><option value="recentPosts">近10篇数据截图</option><option value="price">报价截图</option><option value="audience">粉丝画像截图</option></select>`;
+  row.querySelector('select').addEventListener('change', (e) => {
+    const type = e.target.value;
+    if (!type) return;
+    placeScreenshot(type, dataUrl, ocrText);
+    row.remove();
+  });
+  pendingScreenshots.prepend(row);
+}
+
+async function processImageFile(file) {
+  const dataUrl = await new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.readAsDataURL(file);
+  });
+  let ocrText = '';
+  try {
+    const Tesseract = await ensureTesseract();
+    const result = await Tesseract.recognize(file, 'chi_sim+eng');
+    ocrText = result.data.text || '';
+  } catch (e) {
+    console.warn(e);
+  }
+  const type = classifyByKeywords(ocrText);
+  if (type) placeScreenshot(type, dataUrl, ocrText);
+  else addPendingScreenshot(dataUrl, ocrText);
+}
+
 function applyRecognizedDataToDiagnosisForm() {
   Object.entries(recognizedFormFieldMap).forEach(([recognizedName, diagnosisName]) => {
     const recognizedField = document.querySelector(`[name="${recognizedName}"]`);
@@ -210,7 +292,17 @@ screenshotInputs.forEach((input) => {
 });
 
 document.getElementById('recognizeFromScreenshots').addEventListener('click', () => {
-  alert('当前版本暂未接入 OCR，请人工核对后填写识别结果。');
+  alert('已启用 OCR 辅助分类。也可直接 Ctrl+V 粘贴截图自动处理。');
 });
 
 document.getElementById('applyRecognizedData').addEventListener('click', applyRecognizedDataToDiagnosisForm);
+
+document.addEventListener('paste', async (e) => {
+  const items = e.clipboardData?.items || [];
+  const imageItem = Array.from(items).find((item) => item.type.startsWith('image/'));
+  if (!imageItem) return;
+  const file = imageItem.getAsFile();
+  if (!file) return;
+  e.preventDefault();
+  await processImageFile(file);
+});
