@@ -3,6 +3,20 @@ const resultBox = document.getElementById('resultBox');
 const historySelect = document.getElementById('historySelect');
 const HISTORY_KEY = 'influencer_diagnosis_history_v1';
 
+const screenshotTypeMeta = {
+  profile: { previewId: 'profileScreenshotPreview', label: '达人主页截图' },
+  recentPosts: { previewId: 'recentPostsScreenshotPreview', label: '近10篇数据截图' },
+  price: { previewId: 'priceScreenshotPreview', label: '报价截图' },
+  audience: { previewId: 'audienceScreenshotPreview', label: '粉丝画像截图' }
+};
+
+const screenshotKeywords = {
+  profile: ['粉丝', '关注', '获赞', '小红书号', 'IP属地', '主页', '笔记', '用户名', '个人简介'],
+  recentPosts: ['点赞', '收藏', '评论', '阅读', '浏览', '曝光', '互动', '近10篇', '笔记数据', '平均'],
+  price: ['报价', '图文', '视频', '合作费用', '蒲公英', '服务费', '价格', '元'],
+  audience: ['粉丝画像', '女性', '男性', '年龄', '地域', '城市', '25-34', '35-44', '购买力', '人群']
+};
+
 const sampleData = {
   profileUrl: 'https://www.xiaohongshu.com/user/profile/example', nickname: 'Mia通勤穿搭', followers: 128000,
   avgLikes: 1850, avgSaves: 620, avgComments: 230, medianViews: 32000, price: 18000,
@@ -128,6 +142,154 @@ function refreshHistoryOptions() {
     historySelect.appendChild(op);
   });
 }
+
+function setScreenshotPreview(type, dataUrl, recognizedText = '') {
+  const preview = document.getElementById(screenshotTypeMeta[type].previewId);
+  const details = document.getElementById(`${type}OcrDetails`);
+  const textBox = document.getElementById(`${type}OcrText`);
+  preview.src = dataUrl;
+  preview.classList.add('is-visible');
+  textBox.textContent = recognizedText || '（未识别到文本）';
+  details.classList.remove('hidden');
+}
+
+function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function recognizeTextFromImage(file) {
+  if (window.Tesseract && typeof window.Tesseract.recognize === 'function') {
+    const result = await window.Tesseract.recognize(file, 'chi_sim+eng');
+    return String(result?.data?.text || '').trim();
+  }
+  return mockRecognizeText(file);
+}
+
+async function mockRecognizeText() {
+  return '';
+}
+
+function classifyScreenshotType(text) {
+  const normalized = String(text || '').toLowerCase();
+  let bestType = '';
+  let bestScore = 0;
+
+  Object.entries(screenshotKeywords).forEach(([type, keywords]) => {
+    let score = 0;
+    keywords.forEach((kw) => { if (normalized.includes(kw.toLowerCase())) score += 1; });
+    if (score > bestScore) {
+      bestScore = score;
+      bestType = type;
+    }
+  });
+
+  return bestScore > 0 ? bestType : '';
+}
+
+function showPendingScreenshot(dataUrl, text) {
+  const pendingPreview = document.getElementById('pendingScreenshotPreview');
+  const pendingText = document.getElementById('pendingOcrText');
+  const pendingPanel = document.getElementById('pendingScreenshotPanel');
+  pendingPreview.src = dataUrl;
+  pendingPreview.classList.add('is-visible');
+  pendingText.textContent = text || '（未识别到文本）';
+  pendingPanel.classList.remove('hidden');
+}
+
+function extractFieldsFromOcrText(text) {
+  return {
+    followers: '', avgLikes: '', avgSaves: '', avgComments: '', medianViews: '', price: '',
+    audienceProfile: '', adDensity: '', contentStyle: '',
+    rawText: text || ''
+  };
+}
+
+async function processScreenshotFile(file) {
+  const dataUrl = await readFileAsDataURL(file);
+  const recognizedText = await recognizeTextFromImage(file);
+  const type = classifyScreenshotType(recognizedText);
+  extractFieldsFromOcrText(recognizedText);
+
+  if (!type) {
+    showPendingScreenshot(dataUrl, recognizedText);
+    return;
+  }
+
+  setScreenshotPreview(type, dataUrl, recognizedText);
+}
+
+function handleScreenshotPreview(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  processScreenshotFile(file);
+}
+
+function applyRecognizedDataToDiagnosisForm() {
+  const recognizedFormFieldMap = {
+    recognizedProfileUrl: 'profileUrl', recognizedNickname: 'nickname', recognizedFollowers: 'followers', recognizedAvgLikes: 'avgLikes',
+    recognizedAvgSaves: 'avgSaves', recognizedAvgComments: 'avgComments', recognizedMedianViews: 'medianViews', recognizedPrice: 'price',
+    recognizedAudienceProfile: 'audienceProfile'
+  };
+
+  Object.entries(recognizedFormFieldMap).forEach(([recognizedName, diagnosisName]) => {
+    const recognizedField = document.querySelector(`[name="${recognizedName}"]`);
+    if (!recognizedField) return;
+    const value = (recognizedField.value || '').trim();
+    if (!value) return;
+    if (form[diagnosisName]) form[diagnosisName].value = value;
+  });
+  alert('已将识别结果确认区内容填入诊断表单。');
+}
+
+Array.from(document.querySelectorAll('.screenshot-panel input[type="file"]')).forEach((input) => {
+  input.addEventListener('change', () => handleScreenshotPreview(input));
+});
+
+document.addEventListener('paste', async (event) => {
+  const items = Array.from(event.clipboardData?.items || []);
+  const imageItem = items.find((it) => it.type.startsWith('image/'));
+  if (!imageItem) return;
+  event.preventDefault();
+  const file = imageItem.getAsFile();
+  if (!file) return;
+  await processScreenshotFile(file);
+});
+
+document.querySelectorAll('.change-type-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const sourceType = btn.dataset.type;
+    const preview = document.getElementById(screenshotTypeMeta[sourceType].previewId);
+    if (!preview.src) return;
+    const targetType = prompt('请输入新类型：profile/recentPosts/price/audience');
+    if (!targetType || !screenshotTypeMeta[targetType]) return;
+    const text = document.getElementById(`${sourceType}OcrText`).textContent;
+    setScreenshotPreview(targetType, preview.src, text);
+    preview.removeAttribute('src');
+    preview.classList.remove('is-visible');
+    document.getElementById(`${sourceType}OcrDetails`).classList.add('hidden');
+  });
+});
+
+document.getElementById('confirmPendingType').addEventListener('click', () => {
+  const selected = document.getElementById('pendingTypeSelect').value;
+  if (!selected) return;
+  const preview = document.getElementById('pendingScreenshotPreview');
+  const text = document.getElementById('pendingOcrText').textContent;
+  if (!preview.src) return;
+  setScreenshotPreview(selected, preview.src, text);
+  document.getElementById('pendingScreenshotPanel').classList.add('hidden');
+});
+
+document.getElementById('recognizeFromScreenshots').addEventListener('click', () => {
+  alert('当前版本暂未接入 OCR 自动填表，请人工核对后填写识别结果。');
+});
+
+document.getElementById('applyRecognizedData').addEventListener('click', applyRecognizedDataToDiagnosisForm);
 
 form.addEventListener('submit', (e) => { e.preventDefault(); render(); });
 document.getElementById('loadSample').addEventListener('click', () => fillForm(sampleData));

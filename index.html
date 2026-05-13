@@ -15,6 +15,69 @@
     <main class="layout">
       <section class="panel input-panel">
         <h2>① 录入达人信息</h2>
+
+        <section class="screenshot-panel">
+          <h3>截图上传区</h3>
+          <p class="hint">支持选择文件，也支持截图后直接 Ctrl+V 粘贴。系统会尝试自动判断截图类型，识别不准时可手动修改。</p>
+          <div class="screenshot-grid">
+            <label class="upload-item">达人主页截图<input type="file" accept="image/*" data-preview="profileScreenshotPreview" /></label>
+            <label class="upload-item">近10篇数据截图<input type="file" accept="image/*" data-preview="recentPostsScreenshotPreview" /></label>
+            <label class="upload-item">报价截图<input type="file" accept="image/*" data-preview="priceScreenshotPreview" /></label>
+            <label class="upload-item">粉丝画像截图<input type="file" accept="image/*" data-preview="audienceScreenshotPreview" /></label>
+          </div>
+
+          <div class="preview-grid">
+            <div class="preview-card"><h4>达人主页截图预览</h4><img id="profileScreenshotPreview" class="preview-image" alt="达人主页截图预览" /><button type="button" class="change-type-btn" data-type="profile">更改类型</button><details id="profileOcrDetails" class="ocr-details hidden"><summary>识别到的文字</summary><pre id="profileOcrText"></pre></details></div>
+            <div class="preview-card"><h4>近10篇数据截图预览</h4><img id="recentPostsScreenshotPreview" class="preview-image" alt="近10篇数据截图预览" /><button type="button" class="change-type-btn" data-type="recentPosts">更改类型</button><details id="recentPostsOcrDetails" class="ocr-details hidden"><summary>识别到的文字</summary><pre id="recentPostsOcrText"></pre></details></div>
+            <div class="preview-card"><h4>报价截图预览</h4><img id="priceScreenshotPreview" class="preview-image" alt="报价截图预览" /><button type="button" class="change-type-btn" data-type="price">更改类型</button><details id="priceOcrDetails" class="ocr-details hidden"><summary>识别到的文字</summary><pre id="priceOcrText"></pre></details></div>
+            <div class="preview-card"><h4>粉丝画像截图预览</h4><img id="audienceScreenshotPreview" class="preview-image" alt="粉丝画像截图预览" /><button type="button" class="change-type-btn" data-type="audience">更改类型</button><details id="audienceOcrDetails" class="ocr-details hidden"><summary>识别到的文字</summary><pre id="audienceOcrText"></pre></details></div>
+          </div>
+
+          <div class="actions">
+            <button type="button" id="recognizeFromScreenshots">从截图识别信息</button>
+          </div>
+        
+          <div id="pendingScreenshotPanel" class="pending-panel hidden">
+            <h4>待确认截图</h4>
+            <p>暂时无法判断这张截图类型，请手动选择</p>
+            <img id="pendingScreenshotPreview" class="preview-image" alt="待确认截图预览" />
+            <details class="ocr-details"><summary>识别到的文字</summary><pre id="pendingOcrText"></pre></details>
+            <div class="pending-actions">
+              <select id="pendingTypeSelect">
+                <option value="">请选择截图类型</option>
+                <option value="profile">达人主页截图</option>
+                <option value="recentPosts">近10篇数据截图</option>
+                <option value="price">报价截图</option>
+                <option value="audience">粉丝画像截图</option>
+              </select>
+              <button type="button" id="confirmPendingType">确认归类</button>
+            </div>
+          </div>
+</section>
+
+        <section class="recognition-panel">
+          <h3>识别结果确认区</h3>
+          <div class="grid">
+            <label>达人主页链接<input name="recognizedProfileUrl" placeholder="识别后可人工修正" /></label>
+            <label>达人昵称<input name="recognizedNickname" placeholder="识别后可人工修正" /></label>
+            <label>粉丝量<input name="recognizedFollowers" type="number" min="0" step="1" /></label>
+            <label>近10篇平均点赞<input name="recognizedAvgLikes" type="number" min="0" step="1" /></label>
+            <label>近10篇平均收藏<input name="recognizedAvgSaves" type="number" min="0" step="1" /></label>
+            <label>近10篇平均评论<input name="recognizedAvgComments" type="number" min="0" step="1" /></label>
+            <label>阅读中位数<input name="recognizedMedianViews" type="number" min="1" step="1" /></label>
+            <label>报价（元）<input name="recognizedPrice" type="number" min="0" step="1" /></label>
+            <label>粉丝画像
+              <select name="recognizedAudienceProfile">
+                <option value="">请选择</option>
+                <option>女性为主25-40岁</option><option>女性为主30-50岁</option><option>偏年轻</option><option>不匹配</option>
+              </select>
+            </label>
+          </div>
+          <div class="actions">
+            <button type="button" id="applyRecognizedData">填入诊断表单</button>
+          </div>
+        </section>
+
         <form id="diagnosisForm">
           <div class="grid">
             <label>达人主页链接<input name="profileUrl" type="url" placeholder="https://..." required /></label>
@@ -97,6 +160,7 @@
       </section>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>
